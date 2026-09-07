@@ -1,36 +1,27 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-from typing import Dict, Any
+from typing import Dict, Any, List
 from app.core.config import settings
 from app.ai.recommendation_engine import RecommendationEngine
 from app.ai.assistant import AIAssistant
+from app.rules.clinical_matrix import GlobalClinicalEngine
 
 app = FastAPI(title=settings.PROJECT_NAME, version="1.0.0")
 
-class ProfileSchema(BaseModel):
-    age: int
-    height_cm: float
-    weight_kg: float
-    activity_level: float = 1.375
-    goal: str = "maintenance"
-
-class ChatSchema(BaseModel):
-    message: str
-    current_plan: Dict[str, Any] = {}
+class MultiConditionCheckSchema(BaseModel):
+    title: str
+    carbs_g: float = 0.0
+    protein_g: float = 0.0
+    sodium_mg: float = 0.0
+    ingredients: List[Dict[str, str]] = []
+    user_conditions: List[str]  # e.g. ["pregnancy", "diabetes", "hypertension"]
 
 @app.get("/")
 def root():
-    return {
-        "status": "online",
-        "system": "AI_Health_and-_Diet Engine Operational"
-    }
+    return {"status": "online", "system": "Universal Clinical Safety AI Engine Operational"}
 
-@app.post("/api/v1/recommendations/calculate-macros")
-def calculate_macros(profile: ProfileSchema):
-    engine = RecommendationEngine(profile.model_dump())
-    return engine.calculate_macros()
-
-@app.post("/api/v1/assistant/chat")
-def chat_with_assistant(payload: ChatSchema):
-    response = AIAssistant.process_query(payload.message, payload.current_plan)
-    return {"reply": response}
+@app.post("/api/v1/safety/evaluate-multi-condition")
+def evaluate_multi_condition(payload: MultiConditionCheckSchema):
+    recipe = payload.model_dump()
+    conditions = payload.user_conditions
+    return GlobalClinicalEngine.evaluate_meal_safety(recipe, conditions)
