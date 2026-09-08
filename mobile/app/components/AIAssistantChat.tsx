@@ -24,7 +24,6 @@ export default function AIAssistantChat() {
 
     const userMsg: Message = { id: Date.now().toString(), sender: 'user', text: input };
     
-    // Simulating clinical safety evaluator response
     const isHazard = input.toLowerCase().includes('fish') || input.toLowerCase().includes('soy');
     const aiMsg: Message = {
       id: (Date.now() + 1).toString(),
