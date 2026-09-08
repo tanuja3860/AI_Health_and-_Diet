@@ -1,61 +1,210 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import {
+  StyleSheet,
+  Text,
+  View,
+  TextInput,
+  TouchableOpacity,
+  FlatList,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
+import { Colors } from '../app/constants/theme';
+import { sendChatMessage } from '../services/api';
 
 interface Message {
-  sender: 'ai' | 'user';
+  id: string;
+  sender: 'user' | 'assistant';
   text: string;
+  warnings?: string[];
 }
 
-export const AIAssistantChat = () => {
+export default function AIAssistantChat() {
   const [messages, setMessages] = useState<Message[]>([
-    { sender: 'ai', text: 'Hello! How can I adjust your diet or meal plan today?' }
+    {
+      id: '1',
+      sender: 'assistant',
+      text: 'Hello! I am your AI Health Assistant. Ask me anything about your diet or meal safety.',
+    },
   ]);
-  const [input, setInput] = useState<string>('');
+  const [inputText, setInputText] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const sendMessage = () => {
-    if (!input.trim()) return;
-    setMessages((prev: Message[]) => [...prev, { sender: 'user', text: input }]);
-    setInput('');
-    setTimeout(() => {
-      setMessages((prev: Message[]) => [
-        ...prev,
-        { sender: 'ai', text: "I've noted that! Updating your macro calculations now." }
-      ]);
-    }, 1000);
+  const handleSend = async () => {
+    if (!inputText.trim()) return;
+
+    const userMsg: Message = {
+      id: Date.now().toString(),
+      sender: 'user',
+      text: inputText.trim(),
+    };
+
+    setMessages((prev) => [...prev, userMsg]);
+    const currentQuery = inputText;
+    setInputText('');
+    setLoading(true);
+
+    const response = await sendChatMessage(currentQuery);
+
+    const assistantMsg: Message = {
+      id: (Date.now() + 1).toString(),
+      sender: 'assistant',
+      text: response.reply || response.message || 'Response received.',
+      warnings: response.safety_warnings || [],
+    };
+
+    setMessages((prev) => [...prev, assistantMsg]);
+    setLoading(false);
+  };
+
+  const renderItem = ({ item }: { item: Message }) => {
+    const isUser = item.sender === 'user';
+    return (
+      <View
+        style={[
+          styles.bubble,
+          isUser ? styles.userBubble : styles.assistantBubble,
+        ]}
+      >
+        <Text style={isUser ? styles.userText : styles.assistantText}>
+          {item.text}
+        </Text>
+        {item.warnings && item.warnings.length > 0 && (
+          <View style={styles.warningContainer}>
+            {item.warnings.map((warn, idx) => (
+              <Text key={idx} style={styles.warningText}>
+                ⚠️ {warn}
+              </Text>
+            ))}
+          </View>
+        )}
+      </View>
+    );
   };
 
   return (
-    <View style={styles.container}>
-      <ScrollView style={styles.chatArea}>
-        {messages.map((msg: Message, idx: number) => (
-          <View key={idx} style={[styles.bubble, msg.sender === 'user' ? styles.userMsg : styles.aiMsg]}>
-            <Text style={styles.msgText}>{msg.text}</Text>
-          </View>
-        ))}
-      </ScrollView>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Clinical AI Chat</Text>
+      </View>
+
+      <FlatList
+        data={messages}
+        keyExtractor={(item) => item.id}
+        renderItem={renderItem}
+        contentContainerStyle={styles.chatList}
+      />
+
+      {loading && (
+        <ActivityIndicator
+          size="small"
+          color={Colors.primary}
+          style={{ marginVertical: 8 }}
+        />
+      )}
+
       <View style={styles.inputContainer}>
         <TextInput
           style={styles.input}
-          value={input}
-          onChangeText={setInput}
-          placeholder="Ask AI Assistant..."
+          placeholder="Ask about meal safety..."
+          placeholderTextColor={Colors.textMuted}
+          value={inputText}
+          onChangeText={setInputText}
         />
-        <TouchableOpacity style={styles.sendButton} onPress={sendMessage}>
-          <Text style={{ color: '#fff', fontWeight: 'bold' }}>Send</Text>
+        <TouchableOpacity style={styles.sendButton} onPress={handleSend}>
+          <Text style={styles.sendButtonText}>Send</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16, backgroundColor: '#f8fafc' },
-  chatArea: { flex: 1, marginBottom: 16 },
-  bubble: { padding: 12, borderRadius: 12, marginBottom: 8, maxWidth: '80%' },
-  userMsg: { backgroundColor: '#10b981', alignSelf: 'flex-end' },
-  aiMsg: { backgroundColor: '#e2e8f0', alignSelf: 'flex-start' },
-  msgText: { fontSize: 14, color: '#0f172a' },
-  inputContainer: { flexDirection: 'row', gap: 8 },
-  input: { flex: 1, borderBottomWidth: 1, borderColor: '#cbd5e1', padding: 8 },
-  sendButton: { backgroundColor: '#10b981', padding: 12, borderRadius: 8 }
+  container: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
+  header: {
+    paddingTop: 50,
+    paddingBottom: 16,
+    paddingHorizontal: 20,
+    backgroundColor: Colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: Colors.primary,
+  },
+  chatList: {
+    padding: 16,
+  },
+  bubble: {
+    maxWidth: '80%',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  userBubble: {
+    alignSelf: 'flex-end',
+    backgroundColor: Colors.primary,
+  },
+  assistantBubble: {
+    alignSelf: 'flex-start',
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  userText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+  },
+  assistantText: {
+    color: Colors.text,
+    fontSize: 14,
+  },
+  warningContainer: {
+    marginTop: 8,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  warningText: {
+    fontSize: 12,
+    color: Colors.danger,
+    marginTop: 2,
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    padding: 12,
+    backgroundColor: Colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  input: {
+    flex: 1,
+    height: 40,
+    backgroundColor: Colors.background,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    color: Colors.text,
+    marginRight: 8,
+  },
+  sendButton: {
+    backgroundColor: Colors.primary,
+    borderRadius: 20,
+    paddingHorizontal: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sendButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+    fontSize: 14,
+  },
 });

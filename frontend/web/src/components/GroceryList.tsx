@@ -1,23 +1,49 @@
-import React from 'react';
+'use client';
 
-interface GroceryListProps {
-  items: Record<string, string[]>;
+import React, { useState } from 'react';
+
+interface GroceryItem {
+  id: string;
+  name: string;
+  category: string;
+  checked: boolean;
 }
 
-export const GroceryList: React.FC<GroceryListProps> = ({ items }) => {
+interface GroceryListProps {
+  items?: GroceryItem[];
+}
+
+export default function GroceryList({ items = [] }: GroceryListProps) {
+  const [list, setList] = useState<GroceryItem[]>(
+    items.length > 0 ? items : [
+      { id: '1', name: 'Organic Spinach', category: 'Vegetables', checked: false },
+      { id: '2', name: 'Wild Salmon Fillet', category: 'Proteins', checked: false },
+      { id: '3', name: 'Quinoa', category: 'Grains', checked: false },
+      { id: '4', name: 'Avocado', category: 'Healthy Fats', checked: false },
+    ]
+  );
+
+  const toggleCheck = (id: string) => {
+    setList(prev => prev.map(item => item.id === id ? { ...item, checked: !item.checked } : item));
+  };
+
   return (
-    <div style={{ border: '1px solid #e2e8f0', borderRadius: '12px', padding: '20px', backgroundColor: '#ffffff', maxWidth: '400px' }}>
-      <h2 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '16px' }}>Shopping List</h2>
-      <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-        {Object.entries(items).map(([ingredient, quantities], idx) => (
-          <li key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f8fafc' }}>
-            <span style={{ textTransform: 'capitalize' }}>{ingredient}</span>
-            <span style={{ backgroundColor: '#ecfdf5', color: '#047857', padding: '2px 8px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold' }}>
-              {quantities.join(" + ")}
-            </span>
+    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+      <h2 className="text-lg font-bold text-slate-800 mb-4">🛒 Dynamic Grocery Cart</h2>
+      <ul className="space-y-2">
+        {list.map((item) => (
+          <li
+            key={item.id}
+            onClick={() => toggleCheck(item.id)}
+            className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition ${
+              item.checked ? 'bg-slate-50 border-slate-200 text-slate-400 line-through' : 'bg-white border-slate-200 text-slate-700 hover:border-emerald-300'
+            }`}
+          >
+            <span className="text-sm font-medium">{item.name}</span>
+            <span className="text-xs px-2 py-0.5 rounded bg-slate-100 text-slate-500">{item.category}</span>
           </li>
         ))}
       </ul>
     </div>
   );
-};
+}
