@@ -1,0 +1,32 @@
+[
+  {
+    "ingredient": "raw fish",
+    "forbidden_conditions": ["pregnancy"],
+    "risk_level": "CRITICAL",
+    "clinical_note": "High risk of Listeria monocytogenes and parasite transmission during gestation."
+  },
+  {
+    "ingredient": "grapefruit",
+    "forbidden_conditions": ["hypertension", "kidney_disease"],
+    "risk_level": "HIGH",
+    "clinical_note": "Inhibits CYP3A4 enzymes, causing toxic accumulation of antihypertensive and immunosuppressive drugs."
+  },
+  {
+    "ingredient": "soy sauce",
+    "forbidden_conditions": ["hypertension", "kidney_disease", "celiac"],
+    "risk_level": "HIGH",
+    "clinical_note": "Excessive sodium load triggers fluid retention; wheat content triggers autoimmune damage in Celiac disease."
+  },
+  {
+    "ingredient": "processed meat",
+    "forbidden_conditions": ["hypertension", "type_2_diabetes"],
+    "risk_level": "MEDIUM",
+    "clinical_note": "High nitrates and saturated fats exacerbate vascular inflammation and insulin resistance."
+  },
+  {
+    "ingredient": "barley",
+    "forbidden_conditions": ["celiac"],
+    "risk_level": "CRITICAL",
+    "clinical_note": "Contains gluten proteins (hordein) that induce intestinal villous atrophy."
+  }
+]
