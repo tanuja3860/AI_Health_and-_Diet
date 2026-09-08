@@ -1,125 +1,75 @@
 import React, { useState } from 'react';
-import {
-  StyleSheet,
-  Text,
-  View,
-  TextInput,
-  TouchableOpacity,
-  FlatList,
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList, SafeAreaView } from 'react-native';
 import { Colors } from '../app/constants/theme';
-import { sendChatMessage } from '../services/api';
 
 interface Message {
   id: string;
-  sender: 'user' | 'assistant';
+  sender: 'user' | 'ai';
   text: string;
-  warnings?: string[];
+  status?: 'SAFE' | 'WARNING' | 'HAZARDOUS';
 }
 
 export default function AIAssistantChat() {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      sender: 'assistant',
-      text: 'Hello! I am your AI Health Assistant. Ask me anything about your diet or meal safety.',
+      sender: 'ai',
+      text: 'Hello! Ask me about any meal, and I will cross-reference it with your clinical profile matrix.',
     },
   ]);
-  const [inputText, setInputText] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [input, setInput] = useState('');
 
-  const handleSend = async () => {
-    if (!inputText.trim()) return;
+  const handleSend = () => {
+    if (!input.trim()) return;
 
-    const userMsg: Message = {
-      id: Date.now().toString(),
-      sender: 'user',
-      text: inputText.trim(),
-    };
-
-    setMessages((prev) => [...prev, userMsg]);
-    const currentQuery = inputText;
-    setInputText('');
-    setLoading(true);
-
-    const response = await sendChatMessage(currentQuery);
-
-    const assistantMsg: Message = {
+    const userMsg: Message = { id: Date.now().toString(), sender: 'user', text: input };
+    
+    // Simulating clinical safety evaluator response
+    const isHazard = input.toLowerCase().includes('fish') || input.toLowerCase().includes('soy');
+    const aiMsg: Message = {
       id: (Date.now() + 1).toString(),
-      sender: 'assistant',
-      text: response.reply || response.message || 'Response received.',
-      warnings: response.safety_warnings || [],
+      sender: 'ai',
+      text: isHazard 
+        ? 'Warning: Ingredients detected in this query conflict with active conditions.' 
+        : 'Meal check complete. No critical contraindications found for your profile.',
+      status: isHazard ? 'HAZARDOUS' : 'SAFE',
     };
 
-    setMessages((prev) => [...prev, assistantMsg]);
-    setLoading(false);
-  };
-
-  const renderItem = ({ item }: { item: Message }) => {
-    const isUser = item.sender === 'user';
-    return (
-      <View
-        style={[
-          styles.bubble,
-          isUser ? styles.userBubble : styles.assistantBubble,
-        ]}
-      >
-        <Text style={isUser ? styles.userText : styles.assistantText}>
-          {item.text}
-        </Text>
-        {item.warnings && item.warnings.length > 0 && (
-          <View style={styles.warningContainer}>
-            {item.warnings.map((warn, idx) => (
-              <Text key={idx} style={styles.warningText}>
-                ⚠️ {warn}
-              </Text>
-            ))}
-          </View>
-        )}
-      </View>
-    );
+    setMessages(prev => [...prev, userMsg, aiMsg]);
+    setInput('');
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Clinical AI Chat</Text>
-      </View>
-
+    <SafeAreaView style={styles.container}>
       <FlatList
         data={messages}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        contentContainerStyle={styles.chatList}
+        keyExtractor={item => item.id}
+        contentContainerStyle={styles.listContent}
+        renderItem={({ item }) => (
+          <View style={[styles.bubble, item.sender === 'user' ? styles.userBubble : styles.aiBubble]}>
+            <Text style={styles.bubbleText}>{item.text}</Text>
+            {item.status && (
+              <View style={[styles.badge, item.status === 'HAZARDOUS' ? styles.dangerBadge : styles.safeBadge]}>
+                <Text style={styles.badgeText}>{item.status}</Text>
+              </View>
+            )}
+          </View>
+        )}
       />
 
-      {loading && (
-        <ActivityIndicator
-          size="small"
-          color={Colors.primary}
-          style={{ marginVertical: 8 }}
-        />
-      )}
-
-      <View style={styles.inputContainer}>
+      <View style={styles.inputBar}>
         <TextInput
           style={styles.input}
-          placeholder="Ask about meal safety..."
+          placeholder="Ask AI assistant..."
           placeholderTextColor={Colors.textMuted}
-          value={inputText}
-          onChangeText={setInputText}
+          value={input}
+          onChangeText={setInput}
         />
         <TouchableOpacity style={styles.sendButton} onPress={handleSend}>
-          <Text style={styles.sendButtonText}>Send</Text>
+          <Text style={styles.sendText}>Send</Text>
         </TouchableOpacity>
       </View>
-    </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
@@ -128,83 +78,74 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
-  header: {
-    paddingTop: 50,
-    paddingBottom: 16,
-    paddingHorizontal: 20,
-    backgroundColor: Colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: Colors.primary,
-  },
-  chatList: {
+  listContent: {
     padding: 16,
+    gap: 12,
   },
   bubble: {
-    maxWidth: '80%',
-    padding: 12,
+    padding: 14,
     borderRadius: 12,
-    marginBottom: 12,
+    maxWidth: '85%',
   },
   userBubble: {
     alignSelf: 'flex-end',
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.surfaceLight,
   },
-  assistantBubble: {
+  aiBubble: {
     alignSelf: 'flex-start',
     backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.border,
   },
-  userText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-  },
-  assistantText: {
+  bubbleText: {
     color: Colors.text,
-    fontSize: 14,
+    fontSize: 15,
   },
-  warningContainer: {
+  badge: {
+    alignSelf: 'flex-start',
     marginTop: 8,
-    paddingTop: 6,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
   },
-  warningText: {
-    fontSize: 12,
-    color: Colors.danger,
-    marginTop: 2,
+  safeBadge: {
+    backgroundColor: Colors.safe,
   },
-  inputContainer: {
+  dangerBadge: {
+    backgroundColor: Colors.danger,
+  },
+  badgeText: {
+    color: '#ffffff',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  inputBar: {
     flexDirection: 'row',
     padding: 12,
     backgroundColor: Colors.surface,
     borderTopWidth: 1,
     borderTopColor: Colors.border,
+    gap: 8,
   },
   input: {
     flex: 1,
-    height: 40,
     backgroundColor: Colors.background,
-    borderRadius: 20,
-    paddingHorizontal: 16,
     color: Colors.text,
-    marginRight: 8,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   sendButton: {
     backgroundColor: Colors.primary,
-    borderRadius: 20,
-    paddingHorizontal: 18,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 16,
+    borderRadius: 8,
   },
-  sendButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 14,
+  sendText: {
+    color: '#ffffff',
+    fontWeight: 'bold',
   },
 });

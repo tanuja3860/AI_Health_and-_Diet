@@ -1,138 +1,85 @@
 import React, { useState } from 'react';
-import {
-  StyleSheet,
-  Text,
-  View,
-  TextInput,
-  TouchableOpacity,
-  ScrollView,
-} from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { Colors } from '../app/constants/theme';
 
-const AVAILABLE_CONDITIONS = [
-  { id: 'pregnancy', label: 'Pregnancy' },
-  { id: 'diabetes', label: 'Type 2 Diabetes' },
+const CONDITIONS = [
   { id: 'hypertension', label: 'Hypertension' },
-  { id: 'kidney_disease', label: 'Kidney Disease' },
+  { id: 'type_2_diabetes', label: 'Type 2 Diabetes' },
   { id: 'celiac', label: 'Celiac Disease' },
+  { id: 'kidney_disease', label: 'Chronic Kidney Disease' },
 ];
 
 export default function ProfileScreen() {
-  const [profile, setProfile] = useState({
-    age: '30',
-    weight: '70',
-    height: '170',
-    conditions: ['diabetes'] as string[],
-  });
+  const [selected, setSelected] = useState<string[]>(['hypertension']);
 
   const toggleCondition = (id: string) => {
-    setProfile((prev) => ({
-      ...prev,
-      conditions: prev.conditions.includes(id)
-        ? prev.conditions.filter((c) => c !== id)
-        : [...prev.conditions, id],
-    }));
+    setSelected(prev =>
+      prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]
+    );
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Health Profile Setup</Text>
-      <Text style={styles.subtitle}>Configure medical condition flags for AI evaluations</Text>
+    <ScrollView style={styles.container}>
+      <Text style={styles.title}>Clinical Health Profile</Text>
+      <Text style={styles.subtitle}>Select conditions to calculate safety matrix</Text>
 
-      <Text style={styles.sectionLabel}>Active Conditions</Text>
-      <View style={styles.chipContainer}>
-        {AVAILABLE_CONDITIONS.map((cond) => {
-          const active = profile.conditions.includes(cond.id);
+      <View style={styles.grid}>
+        {CONDITIONS.map(item => {
+          const isActive = selected.includes(item.id);
           return (
             <TouchableOpacity
-              key={cond.id}
-              onPress={() => toggleCondition(cond.id)}
-              style={[styles.chip, active && styles.chipActive]}
+              key={item.id}
+              style={[styles.card, isActive && styles.activeCard]}
+              onPress={() => toggleCondition(item.id)}
             >
-              <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                {cond.label}
+              <Text style={[styles.cardText, isActive && styles.activeCardText]}>
+                {item.label}
               </Text>
             </TouchableOpacity>
           );
         })}
       </View>
-
-      <Text style={styles.sectionLabel}>Metrics</Text>
-      <View style={styles.row}>
-        <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>Age</Text>
-          <TextInput
-            style={styles.input}
-            keyboardType="numeric"
-            value={profile.age}
-            onChangeText={(v) => setProfile({ ...profile, age: v })}
-          />
-        </View>
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>Weight (kg)</Text>
-          <TextInput
-            style={styles.input}
-            keyboardType="numeric"
-            value={profile.weight}
-            onChangeText={(v) => setProfile({ ...profile, weight: v })}
-          />
-        </View>
-
-        <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>Height (cm)</Text>
-          <TextInput
-            style={styles.input}
-            keyboardType="numeric"
-            value={profile.height}
-            onChangeText={(v) => setProfile({ ...profile, height: v })}
-          />
-        </View>
-      </View>
-
-      <TouchableOpacity style={styles.saveButton}>
-        <Text style={styles.saveButtonText}>Save Profile Settings</Text>
-      </TouchableOpacity>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.background },
-  content: { padding: 20, paddingTop: 60 },
-  title: { fontSize: 22, fontWeight: 'bold', color: Colors.primary, marginBottom: 4 },
-  subtitle: { fontSize: 13, color: Colors.textMuted, marginBottom: 24 },
-  sectionLabel: { fontSize: 14, fontWeight: '600', color: Colors.text, marginBottom: 12 },
-  chipContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 24 },
-  chip: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 20,
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.border,
+  container: {
+    flex: 1,
+    backgroundColor: Colors.background,
+    padding: 16,
   },
-  chipActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
-  chipText: { fontSize: 12, color: Colors.text, fontWeight: '500' },
-  chipTextActive: { color: '#FFFFFF' },
-  row: { flexDirection: 'row', gap: 12, marginBottom: 24 },
-  inputGroup: { flex: 1 },
-  inputLabel: { fontSize: 12, color: Colors.textMuted, marginBottom: 6 },
-  input: {
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: 8,
-    padding: 10,
-    fontSize: 14,
+  title: {
+    fontSize: 22,
+    fontWeight: 'bold',
     color: Colors.text,
+    marginBottom: 4,
   },
-  saveButton: {
-    backgroundColor: Colors.primary,
-    paddingVertical: 14,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginTop: 10,
+  subtitle: {
+    fontSize: 14,
+    color: Colors.textMuted,
+    marginBottom: 20,
   },
-  saveButtonText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 15 },
+  grid: {
+    gap: 12,
+  },
+  card: {
+    backgroundColor: Colors.surface,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  activeCard: {
+    borderColor: Colors.primary,
+    backgroundColor: Colors.surfaceLight,
+  },
+  cardText: {
+    color: Colors.textMuted,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  activeCardText: {
+    color: Colors.primary,
+  },
 });
