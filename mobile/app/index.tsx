@@ -1,6 +1,7 @@
-import React from 'react';
+import { registerRootComponent } from 'expo';
 import App from './App';
 
-export default function Page() {
-  return <App />;
-}
+// registerRootComponent calls AppRegistry.registerComponent('main', () => App);
+// It also ensures that whether you load the app in Expo Go, web, or native,
+// the environment is correctly bootstrapped.
+registerRootComponent(App);
