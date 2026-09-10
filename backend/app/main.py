@@ -5,8 +5,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
 
-# Import the authentication router
-from app.routers import auth
+# Import routers
+from app.routers import auth, safety
 
 app = FastAPI(title="Clinical AI Health API")
 
@@ -19,8 +19,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include Authentication Routes
+# Register Routers
 app.include_router(auth.router)
+app.include_router(safety.router)
 
 # Path pointing directly to root data/allergens/ directory
 DATASET_PATH = os.path.abspath(

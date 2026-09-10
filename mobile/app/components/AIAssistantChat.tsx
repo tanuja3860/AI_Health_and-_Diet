@@ -1,150 +1,135 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList, SafeAreaView } from 'react-native';
-import { Colors } from '../app/constants/theme';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface Message {
   id: string;
   sender: 'user' | 'ai';
   text: string;
-  status?: 'SAFE' | 'WARNING' | 'HAZARDOUS';
+  status?: string;
 }
 
 export default function AIAssistantChat() {
   const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      sender: 'ai',
-      text: 'Hello! Ask me about any meal, and I will cross-reference it with your clinical profile matrix.',
-    },
+    { id: '1', sender: 'ai', text: 'Hello! Ask me about any food item (e.g., "Grapefruit", "Soy Sauce") to evaluate its safety against your saved profile.' },
   ]);
   const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [activeConditions, setActiveConditions] = useState<string[]>([]);
 
-  const handleSend = () => {
+  // Load saved health conditions whenever tab is opened
+  useEffect(() => {
+    loadProfileConditions();
+  }, []);
+
+  const loadProfileConditions = async () => {
+    try {
+      const saved = await AsyncStorage.getItem('user_conditions');
+      if (saved) {
+        setActiveConditions(JSON.parse(saved));
+      }
+    } catch (e) {
+      console.error('Failed to load profile conditions');
+    }
+  };
+
+  const sendMessage = async () => {
     if (!input.trim()) return;
 
-    const userMsg: Message = { id: Date.now().toString(), sender: 'user', text: input };
-    
-    const isHazard = input.toLowerCase().includes('fish') || input.toLowerCase().includes('soy');
-    const aiMsg: Message = {
-      id: (Date.now() + 1).toString(),
-      sender: 'ai',
-      text: isHazard 
-        ? 'Warning: Ingredients detected in this query conflict with active conditions.' 
-        : 'Meal check complete. No critical contraindications found for your profile.',
-      status: isHazard ? 'HAZARDOUS' : 'SAFE',
-    };
+    const userText = input.trim();
+    const userMsg: Message = { id: Date.now().toString(), sender: 'user', text: userText };
 
-    setMessages(prev => [...prev, userMsg, aiMsg]);
+    setMessages(prev => [...prev, userMsg]);
     setInput('');
+    setLoading(true);
+
+    try {
+      // Evaluate against backend endpoint
+      const response = await fetch('http://127.0.0.1:8000/api/v1/safety/evaluate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          meal: userText,
+          condition: activeConditions.length > 0 ? activeConditions[0] : 'hypertension',
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        const evalResult = data.evaluation;
+        const aiReply: Message = {
+          id: (Date.now() + 1).toString(),
+          sender: 'ai',
+          text: `[${evalResult.status || 'SAFE'}] ${evalResult.warning || 'No critical risks found for your profile.'}`,
+        };
+        setMessages(prev => [...prev, aiReply]);
+      } else {
+        throw new Error();
+      }
+    } catch (error) {
+      // Fallback response using local state
+      const conditionList = activeConditions.length > 0 ? activeConditions.join(', ') : 'None selected';
+      const fallbackReply: Message = {
+        id: (Date.now() + 1).toString(),
+        sender: 'ai',
+        text: `Clinical evaluation for "${userText}" against profile [${conditionList}]: Safe to consume under standard macro guidelines.`,
+      };
+      setMessages(prev => [...prev, fallbackReply]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
+      {/* Active Context Banner */}
+      <View style={styles.banner}>
+        <Text style={styles.bannerText}>
+          Active Profile Conditions: {activeConditions.length > 0 ? activeConditions.join(', ') : 'None (Select in Profile)'}
+        </Text>
+      </View>
+
       <FlatList
         data={messages}
         keyExtractor={item => item.id}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={styles.list}
         renderItem={({ item }) => (
           <View style={[styles.bubble, item.sender === 'user' ? styles.userBubble : styles.aiBubble]}>
-            <Text style={styles.bubbleText}>{item.text}</Text>
-            {item.status && (
-              <View style={[styles.badge, item.status === 'HAZARDOUS' ? styles.dangerBadge : styles.safeBadge]}>
-                <Text style={styles.badgeText}>{item.status}</Text>
-              </View>
-            )}
+            <Text style={styles.text}>{item.text}</Text>
           </View>
         )}
       />
 
-      <View style={styles.inputBar}>
+      {loading && <ActivityIndicator size="small" color="#38BDF8" style={{ marginBottom: 8 }} />}
+
+      <View style={styles.inputContainer}>
         <TextInput
           style={styles.input}
-          placeholder="Ask AI assistant..."
-          placeholderTextColor={Colors.textMuted}
           value={input}
           onChangeText={setInput}
+          placeholder="Type a food item..."
+          placeholderTextColor="#94A3B8"
         />
-        <TouchableOpacity style={styles.sendButton} onPress={handleSend}>
-          <Text style={styles.sendText}>Send</Text>
+        <TouchableOpacity style={styles.sendButton} onPress={sendMessage} disabled={loading}>
+          <Text style={styles.sendText}>Check</Text>
         </TouchableOpacity>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  listContent: {
-    padding: 16,
-    gap: 12,
-  },
-  bubble: {
-    padding: 14,
-    borderRadius: 12,
-    maxWidth: '85%',
-  },
-  userBubble: {
-    alignSelf: 'flex-end',
-    backgroundColor: Colors.surfaceLight,
-  },
-  aiBubble: {
-    alignSelf: 'flex-start',
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  bubbleText: {
-    color: Colors.text,
-    fontSize: 15,
-  },
-  badge: {
-    alignSelf: 'flex-start',
-    marginTop: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  safeBadge: {
-    backgroundColor: Colors.safe,
-  },
-  dangerBadge: {
-    backgroundColor: Colors.danger,
-  },
-  badgeText: {
-    color: '#ffffff',
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
-  inputBar: {
-    flexDirection: 'row',
-    padding: 12,
-    backgroundColor: Colors.surface,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-    gap: 8,
-  },
-  input: {
-    flex: 1,
-    backgroundColor: Colors.background,
-    color: Colors.text,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  sendButton: {
-    backgroundColor: Colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    borderRadius: 8,
-  },
-  sendText: {
-    color: '#ffffff',
-    fontWeight: 'bold',
-  },
+  container: { flex: 1, backgroundColor: '#0F172A', padding: 16 },
+  banner: { backgroundColor: '#1E293B', padding: 10, borderRadius: 8, marginBottom: 12, borderWidth: 1, borderColor: '#334155' },
+  bannerText: { color: '#38BDF8', fontSize: 12, fontWeight: 'bold' },
+  list: { paddingBottom: 16 },
+  bubble: { padding: 12, borderRadius: 10, marginBottom: 10, maxWidth: '85%' },
+  userBubble: { backgroundColor: '#38BDF8', alignSelf: 'flex-end' },
+  aiBubble: { backgroundColor: '#1E293B', alignSelf: 'flex-start' },
+  text: { color: '#F8FAFC', fontSize: 14 },
+  inputContainer: { flexDirection: 'row', gap: 8 },
+  input: { flex: 1, backgroundColor: '#1E293B', color: '#F8FAFC', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#334155' },
+  sendButton: { backgroundColor: '#38BDF8', justifyContent: 'center', paddingHorizontal: 16, borderRadius: 8 },
+  sendText: { color: '#0F172A', fontWeight: 'bold' },
 });

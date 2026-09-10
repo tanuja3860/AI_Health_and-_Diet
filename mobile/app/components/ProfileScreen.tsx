@@ -1,126 +1,112 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
-import { Colors } from '../app/constants/theme';
+import { View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, Alert } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface Condition {
   id: string;
   label: string;
 }
 
-const FALLBACK_CONDITIONS: Condition[] = [
-  { id: 'hypertension', label: 'Hypertension' },
-  { id: 'type_2_diabetes', label: 'Type 2 Diabetes' },
-  { id: 'celiac', label: 'Celiac Disease' },
-  { id: 'kidney_disease', label: 'Chronic Kidney Disease' },
-  { id: 'coronary_artery', label: 'Coronary Artery Disease' },
-  { id: 'gout', label: 'Gout' },
-  { id: 'ibs', label: 'Irritable Bowel Syndrome (IBS)' },
-  { id: 'lactose_intolerance', label: 'Lactose Intolerance' },
-  { id: 'peanut_allergy', label: 'Peanut Allergy' },
-  { id: 'hyperlipidemia', label: 'Hyperlipidemia' },
-];
-
 export default function ProfileScreen() {
   const [conditions, setConditions] = useState<Condition[]>([]);
-  const [selected, setSelected] = useState<string[]>(['hypertension']);
+  const [selectedConditions, setSelectedConditions] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
-    const fetchConditions = async () => {
-      try {
-        const response = await fetch('http://127.0.0.1:8000/api/v1/conditions');
-        if (response.ok) {
-          const data = await response.json();
-          setConditions(data);
-        } else {
-          setConditions(FALLBACK_CONDITIONS);
-        }
-      } catch (error) {
-        // Fallback if backend is offline or unreachable
-        setConditions(FALLBACK_CONDITIONS);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchConditions();
+    loadSavedConditions();
   }, []);
 
-  const toggleCondition = (id: string) => {
-    setSelected(prev =>
-      prev.includes(id) ? prev.filter(c => c !== id) : [...prev, id]
-    );
+  const fetchConditions = async () => {
+    try {
+      const response = await fetch('http://127.0.0.1:8000/api/v1/conditions');
+      const data = await response.json();
+      setConditions(data);
+    } catch (error) {
+      // Fallback condition list
+      setConditions([
+        { id: 'hypertension', label: 'Hypertension' },
+        { id: 'type_2_diabetes', label: 'Type 2 Diabetes' },
+        { id: 'celiac', label: 'Celiac Disease' },
+        { id: 'kidney_disease', label: 'Chronic Kidney Disease' },
+      ]);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  return (
-    <ScrollView style={styles.container}>
-      <Text style={styles.title}>Clinical Health Profile</Text>
-      <Text style={styles.subtitle}>Select conditions to calculate safety matrix</Text>
+  const loadSavedConditions = async () => {
+    const saved = await AsyncStorage.getItem('user_conditions');
+    if (saved) {
+      setSelectedConditions(JSON.parse(saved));
+    }
+  };
 
-      {loading ? (
-        <ActivityIndicator size="large" color={Colors.primary} style={styles.loader} />
-      ) : (
-        <View style={styles.grid}>
-          {conditions.map(item => {
-            const isActive = selected.includes(item.id);
-            return (
-              <TouchableOpacity
-                key={item.id}
-                style={[styles.card, isActive && styles.activeCard]}
-                onPress={() => toggleCondition(item.id)}
-              >
-                <Text style={[styles.cardText, isActive && styles.activeCardText]}>
-                  {item.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      )}
-    </ScrollView>
+  const toggleCondition = async (id: string) => {
+    let updated: string[];
+    if (selectedConditions.includes(id)) {
+      updated = selectedConditions.filter(item => item !== id);
+    } else {
+      updated = [...selectedConditions, id];
+    }
+    
+    setSelectedConditions(updated);
+    await AsyncStorage.setItem('user_conditions', JSON.stringify(updated));
+  };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.center]}>
+        <ActivityIndicator size="large" color="#38BDF8" />
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>Clinical Health Profile</Text>
+      <Text style={styles.subtitle}>Select active health conditions to calculate your food safety matrix:</Text>
+
+      <FlatList
+        data={conditions}
+        keyExtractor={item => item.id}
+        renderItem={({ item }) => {
+          const isSelected = selectedConditions.includes(item.id);
+          return (
+            <TouchableOpacity
+              style={[styles.card, isSelected && styles.selectedCard]}
+              onPress={() => toggleCondition(item.id)}
+            >
+              <Text style={[styles.cardText, isSelected && styles.selectedCardText]}>
+                {item.label}
+              </Text>
+              <Text style={styles.badge}>{isSelected ? 'ACTIVE' : 'SELECT'}</Text>
+            </TouchableOpacity>
+          );
+        }}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-    padding: 16,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: Colors.text,
-    marginBottom: 4,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: Colors.textMuted,
-    marginBottom: 20,
-  },
-  loader: {
-    marginTop: 40,
-  },
-  grid: {
-    gap: 12,
-  },
+  container: { flex: 1, padding: 16, backgroundColor: '#0F172A' },
+  center: { justifyContent: 'center', alignItems: 'center' },
+  title: { fontSize: 22, fontWeight: 'bold', color: '#F8FAFC', marginBottom: 4 },
+  subtitle: { fontSize: 14, color: '#94A3B8', marginBottom: 16 },
   card: {
-    backgroundColor: Colors.surface,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#1E293B',
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 8,
+    marginBottom: 10,
     borderWidth: 1,
-    borderColor: Colors.border,
+    borderColor: '#334155',
   },
-  activeCard: {
-    borderColor: Colors.primary,
-    backgroundColor: Colors.surfaceLight,
-  },
-  cardText: {
-    color: Colors.textMuted,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  activeCardText: {
-    color: Colors.primary,
-  },
+  selectedCard: { borderColor: '#38BDF8', backgroundColor: '#0369A1' },
+  cardText: { color: '#F8FAFC', fontSize: 16, fontWeight: '600' },
+  selectedCardText: { color: '#FFFFFF', fontWeight: 'bold' },
+  badge: { color: '#94A3B8', fontSize: 12, fontWeight: 'bold' },
 });
