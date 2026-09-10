@@ -11,7 +11,6 @@ export default function App() {
   const [loading, setLoading] = useState<boolean>(true);
   const [activeTab, setActiveTab] = useState<'profile' | 'chat'>('profile');
 
-  // Check for saved token on startup
   useEffect(() => {
     checkToken();
   }, []);
@@ -47,7 +46,6 @@ export default function App() {
     );
   }
 
-  // Render LoginScreen if not authenticated
   if (!isAuthenticated) {
     return (
       <SafeAreaView style={styles.container}>
@@ -56,7 +54,6 @@ export default function App() {
     );
   }
 
-  // Render Dashboard with Tabs if authenticated
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -67,7 +64,11 @@ export default function App() {
       </View>
 
       <View style={styles.screen}>
-        {activeTab === 'profile' ? <ProfileScreen /> : <AIAssistantChat />}
+        {activeTab === 'profile' ? (
+          <ProfileScreen onSaveAndContinue={() => setActiveTab('chat')} />
+        ) : (
+          <AIAssistantChat />
+        )}
       </View>
 
       <View style={styles.tabBar}>

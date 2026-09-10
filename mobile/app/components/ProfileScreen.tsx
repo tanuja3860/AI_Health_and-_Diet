@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface Condition {
@@ -7,7 +7,11 @@ interface Condition {
   label: string;
 }
 
-export default function ProfileScreen() {
+interface ProfileScreenProps {
+  onSaveAndContinue?: () => void;
+}
+
+export default function ProfileScreen({ onSaveAndContinue }: ProfileScreenProps) {
   const [conditions, setConditions] = useState<Condition[]>([]);
   const [selectedConditions, setSelectedConditions] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -23,7 +27,6 @@ export default function ProfileScreen() {
       const data = await response.json();
       setConditions(data);
     } catch (error) {
-      // Fallback condition list
       setConditions([
         { id: 'hypertension', label: 'Hypertension' },
         { id: 'type_2_diabetes', label: 'Type 2 Diabetes' },
@@ -85,6 +88,13 @@ export default function ProfileScreen() {
           );
         }}
       />
+
+      <TouchableOpacity 
+        style={styles.continueButton} 
+        onPress={onSaveAndContinue}
+      >
+        <Text style={styles.continueText}>Save & Continue to AI Assistant →</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -109,4 +119,12 @@ const styles = StyleSheet.create({
   cardText: { color: '#F8FAFC', fontSize: 16, fontWeight: '600' },
   selectedCardText: { color: '#FFFFFF', fontWeight: 'bold' },
   badge: { color: '#94A3B8', fontSize: 12, fontWeight: 'bold' },
+  continueButton: {
+    backgroundColor: '#38BDF8',
+    padding: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  continueText: { color: '#0F172A', fontWeight: 'bold', fontSize: 16 },
 });
