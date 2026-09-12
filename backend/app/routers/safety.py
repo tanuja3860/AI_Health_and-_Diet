@@ -1,43 +1,57 @@
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
 import json
 import os
+from fastapi import APIRouter
+from pydantic import BaseModel
+from typing import List, Union
 
-router = APIRouter(prefix="/api/v1/safety", tags=["Clinical Safety"])
+router = APIRouter(prefix="/api/v1/safety", tags=["Safety"])
 
-class MealCheckRequest(BaseModel):
+MATRIX_FILE = os.path.join(os.path.dirname(__file__), "..", "food_safety_matrix.json")
+
+def load_matrix():
+    if os.path.exists(MATRIX_FILE):
+        with open(MATRIX_FILE, "r") as f:
+            return json.load(f)
+    return {}
+
+class SafetyCheckRequest(BaseModel):
     meal: str
-    condition: str
+    conditions: Union[List[str], str]
+
+# Common conversational greetings to catch before evaluating as food
+GREETINGS = {"hi", "hii", "hello", "hey", "hola", "good morning", "good evening", "what can you do"}
 
 @router.post("/evaluate")
-async def evaluate_meal(request: MealCheckRequest):
-    try:
-        # Locate the matrix file in the root workspace directory
-        matrix_path = os.path.join(os.path.dirname(__file__), "../../../food_safety_matrix.json")
-        
-        if not os.path.exists(matrix_path):
-            # Fallback to root path
-            matrix_path = "food_safety_matrix.json"
+async def evaluate_safety(request: SafetyCheckRequest):
+    meal = request.meal.strip().lower()
+    conditions = request.conditions if isinstance(request.conditions, list) else [request.conditions]
 
-        if os.path.exists(matrix_path):
-            with open(matrix_path, "r") as f:
-                matrix = json.load(f)
-        else:
-            matrix = {}
+    # Handle standard chat greetings directly
+    if meal in GREETINGS:
+        cond_str = ", ".join(conditions) if conditions else "None"
+        reply = (
+            f"Hello! 👋 I'm your Clinical AI Assistant. Your active profile is currently set to: [{cond_str}]. "
+            "You can type any food, ingredient, or meal (e.g., 'Grapefruit', 'Soy Sauce', 'Eggs') and I'll evaluate its clinical safety for you!"
+        )
+        return {"status": "CHAT", "reply": reply}
 
-        meal_key = request.meal.lower()
-        condition_key = request.condition.lower()
+    # Evaluate food safety matrix for actual items
+    matrix = load_matrix()
+    warnings = []
+    status = "SAFE"
 
-        # Check safety level against matrix
-        safety_data = matrix.get(meal_key, {}).get(condition_key, {
-            "status": "Safe",
-            "warning": "No explicit clinical risk found for this condition."
-        })
+    for item_key, item_data in matrix.get("foods", {}).items():
+        if item_key.lower() in meal or meal in item_key.lower():
+            for cond in conditions:
+                cond_clean = cond.lower()
+                if cond_clean in item_data.get("risk_conditions", {}):
+                    risk = item_data["risk_conditions"][cond_clean]
+                    status = risk.get("level", "WARNING")
+                    warnings.append(f"• [{cond.upper()}]: {risk.get('reason', 'Exercise caution.')}")
 
-        return {
-            "meal": request.meal,
-            "condition": request.condition,
-            "evaluation": safety_data
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Evaluation failed: {str(e)}")
+    if warnings:
+        reply = f"⚠️ Clinical Warning for '{request.meal.title()}':\n" + "\n".join(warnings)
+    else:
+        reply = f"✅ '{request.meal.title()}' is evaluated as SAFE for your active profile [{', '.join(conditions)}]. No elevated clinical risks found."
+
+    return {"status": status, "reply": reply}

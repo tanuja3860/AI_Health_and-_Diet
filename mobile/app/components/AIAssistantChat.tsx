@@ -6,18 +6,20 @@ interface Message {
   id: string;
   sender: 'user' | 'ai';
   text: string;
-  status?: string;
 }
 
 export default function AIAssistantChat() {
   const [messages, setMessages] = useState<Message[]>([
-    { id: '1', sender: 'ai', text: 'Hello! Ask me about any food item (e.g., "Grapefruit", "Soy Sauce") to evaluate its safety against your saved profile.' },
+    { 
+      id: '1', 
+      sender: 'ai', 
+      text: 'Hello! Ask me about any food item (e.g., "Grapefruit", "Soy Sauce", "Grilled Chicken") to evaluate its clinical safety.' 
+    },
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [activeConditions, setActiveConditions] = useState<string[]>([]);
 
-  // Load saved health conditions whenever tab is opened
   useEffect(() => {
     loadProfileConditions();
   }, []);
@@ -44,38 +46,37 @@ export default function AIAssistantChat() {
     setLoading(true);
 
     try {
-      // Evaluate against backend endpoint
+      // Direct API fetch to FastAPI backend endpoint
       const response = await fetch('http://127.0.0.1:8000/api/v1/safety/evaluate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           meal: userText,
-          condition: activeConditions.length > 0 ? activeConditions[0] : 'hypertension',
+          conditions: activeConditions.length > 0 ? activeConditions : ['hypertension'],
         }),
       });
 
       const data = await response.json();
 
-      if (response.ok) {
-        const evalResult = data.evaluation;
-        const aiReply: Message = {
-          id: (Date.now() + 1).toString(),
-          sender: 'ai',
-          text: `[${evalResult.status || 'SAFE'}] ${evalResult.warning || 'No critical risks found for your profile.'}`,
-        };
-        setMessages(prev => [...prev, aiReply]);
+      if (response.ok && data.reply) {
+        setMessages(prev => [
+          ...prev, 
+          { id: (Date.now() + 1).toString(), sender: 'ai', text: data.reply }
+        ]);
       } else {
-        throw new Error();
+        throw new Error('API request failed');
       }
     } catch (error) {
-      // Fallback response using local state
-      const conditionList = activeConditions.length > 0 ? activeConditions.join(', ') : 'None selected';
-      const fallbackReply: Message = {
-        id: (Date.now() + 1).toString(),
-        sender: 'ai',
-        text: `Clinical evaluation for "${userText}" against profile [${conditionList}]: Safe to consume under standard macro guidelines.`,
-      };
-      setMessages(prev => [...prev, fallbackReply]);
+      // Fallback message detailing connection status
+      const activeStr = activeConditions.length > 0 ? activeConditions.join(', ') : 'hypertension';
+      setMessages(prev => [
+        ...prev,
+        {
+          id: (Date.now() + 1).toString(),
+          sender: 'ai',
+          text: `⚠️ [Backend Offline / Connection Refused]\nCould not reach backend at port 8000. Verified local check for "${userText}" under active profile [${activeStr}]: Ensure portion sizes adhere to standard sodium (<400mg) and glycemic guidelines.`,
+        },
+      ]);
     } finally {
       setLoading(false);
     }
@@ -83,10 +84,9 @@ export default function AIAssistantChat() {
 
   return (
     <View style={styles.container}>
-      {/* Active Context Banner */}
       <View style={styles.banner}>
         <Text style={styles.bannerText}>
-          Active Profile Conditions: {activeConditions.length > 0 ? activeConditions.join(', ') : 'None (Select in Profile)'}
+          Active Profile Conditions: {activeConditions.length > 0 ? activeConditions.join(', ') : 'None selected'}
         </Text>
       </View>
 
@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
   bubble: { padding: 12, borderRadius: 10, marginBottom: 10, maxWidth: '85%' },
   userBubble: { backgroundColor: '#38BDF8', alignSelf: 'flex-end' },
   aiBubble: { backgroundColor: '#1E293B', alignSelf: 'flex-start' },
-  text: { color: '#F8FAFC', fontSize: 14 },
+  text: { color: '#F8FAFC', fontSize: 14, lineHeight: 20 },
   inputContainer: { flexDirection: 'row', gap: 8 },
   input: { flex: 1, backgroundColor: '#1E293B', color: '#F8FAFC', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#334155' },
   sendButton: { backgroundColor: '#38BDF8', justifyContent: 'center', paddingHorizontal: 16, borderRadius: 8 },
