@@ -2,14 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { SafeAreaView, StyleSheet, View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import ProfileScreen from './components/ProfileScreen';
+import PersonalInfoScreen from './components/PersonalInfoScreen';
+import MedicalProfileScreen from './components/MedicalProfileScreen';
 import LoginScreen from './components/LoginScreen';
 import AIAssistantChat from './components/AIAssistantChat';
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
-  const [activeTab, setActiveTab] = useState<'profile' | 'chat'>('profile');
+  const [activeTab, setActiveTab] = useState<'personal' | 'medical' | 'chat'>('personal');
 
   useEffect(() => {
     checkToken();
@@ -18,13 +19,8 @@ export default function App() {
   const checkToken = async () => {
     try {
       const token = await AsyncStorage.getItem('userToken');
-      if (token) {
-        setIsAuthenticated(true);
-      } else {
-        setIsAuthenticated(false);
-      }
+      setIsAuthenticated(!!token);
     } catch (error) {
-      console.error('Error reading auth token:', error);
       setIsAuthenticated(false);
     } finally {
       setLoading(false);
@@ -56,6 +52,7 @@ export default function App() {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* App Top Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Clinical AI Health</Text>
         <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
@@ -63,21 +60,37 @@ export default function App() {
         </TouchableOpacity>
       </View>
 
+      {/* Dynamic Screen Container */}
       <View style={styles.screen}>
-        {activeTab === 'profile' ? (
-          <ProfileScreen onSaveAndContinue={() => setActiveTab('chat')} />
-        ) : (
-          <AIAssistantChat />
+        {activeTab === 'personal' && (
+          <PersonalInfoScreen onNext={() => setActiveTab('medical')} />
         )}
+        {activeTab === 'medical' && (
+          <MedicalProfileScreen
+            onBack={() => setActiveTab('personal')}
+            onComplete={() => setActiveTab('chat')}
+          />
+        )}
+        {activeTab === 'chat' && <AIAssistantChat />}
       </View>
 
+      {/* Bottom Navigation Tabs */}
       <View style={styles.tabBar}>
         <TouchableOpacity
-          style={[styles.tab, activeTab === 'profile' && styles.activeTab]}
-          onPress={() => setActiveTab('profile')}
+          style={[styles.tab, activeTab === 'personal' && styles.activeTab]}
+          onPress={() => setActiveTab('personal')}
         >
-          <Text style={[styles.tabText, activeTab === 'profile' && styles.activeTabText]}>
-            Health Profile
+          <Text style={[styles.tabText, activeTab === 'personal' && styles.activeTabText]}>
+            1. Personal
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'medical' && styles.activeTab]}
+          onPress={() => setActiveTab('medical')}
+        >
+          <Text style={[styles.tabText, activeTab === 'medical' && styles.activeTabText]}>
+            2. Medical
           </Text>
         </TouchableOpacity>
 
@@ -86,7 +99,7 @@ export default function App() {
           onPress={() => setActiveTab('chat')}
         >
           <Text style={[styles.tabText, activeTab === 'chat' && styles.activeTabText]}>
-            AI Assistant
+            3. AI Assistant
           </Text>
         </TouchableOpacity>
       </View>
@@ -151,7 +164,7 @@ const styles = StyleSheet.create({
   },
   tabText: {
     color: '#94A3B8',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
   },
   activeTabText: {
